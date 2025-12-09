@@ -392,6 +392,7 @@ public class Broker(
                         session.will?.let {
                             sendWill(session as Session)
                         }
+                        (session as? Session)?.flushInflight()
                         persistence?.removeSession(iSession.key)
                         subscriptions.delete(iSession.key)
                         persistence?.removeSubscriptions(iSession.key)
@@ -435,6 +436,7 @@ public class Broker(
             sessions.filter { it.value.connected && it.value is Session }.forEach {
                 (it.value as Session).clientConnection?.disconnect(reasonCode, serverReference)
             }
+            sessions.values.filterIsInstance<Session>().forEach { it.flushInflight() }
             server.stop()
         }
         if (!stopCallbackCalled) {

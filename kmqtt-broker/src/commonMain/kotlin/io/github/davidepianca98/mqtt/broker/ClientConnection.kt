@@ -54,6 +54,7 @@ import io.github.davidepianca98.mqtt.packets.mqttv5.MQTT5Suback
 import io.github.davidepianca98.mqtt.packets.mqttv5.MQTT5Unsuback
 import io.github.davidepianca98.mqtt.packets.mqttv5.MQTT5Unsubscribe
 import io.github.davidepianca98.mqtt.packets.mqttv5.ReasonCode
+import io.github.davidepianca98.mqtt.broker.InflightState
 import io.github.davidepianca98.socket.IOException
 import io.github.davidepianca98.socket.SocketInterface
 import io.github.davidepianca98.socket.streams.EOFException
@@ -351,6 +352,10 @@ public class ClientConnection(
         broker.persistence?.persistSession(clientId, session)
     }
 
+    internal fun persistInflight(clientId: String, state: InflightState) {
+        broker.persistence?.persistInflight(clientId, state)
+    }
+
     private fun newSession(packet: MQTTConnect): Session {
         return Session(
             this,
@@ -358,7 +363,9 @@ public class ClientConnection(
             if (packet is MQTT5Connect) packet.properties.sessionExpiryInterval ?: 0u else 0xFFFFFFFFu,
             if (packet.connectFlags.willFlag) Will(packet) else null,
             this::persistSession,
-            broker::propagateSession
+            broker::propagateSession,
+            this::persistInflight,
+            broker.persistence?.getInflight(packet.clientID)
         )
     }
 
@@ -581,8 +588,10 @@ public class ClientConnection(
                         writePacket(MQTT4Pubrec(packet.packetId!!))
                     }
                 }
-                if (reasonCode == ReasonCode.SUCCESS)
+                if (reasonCode == ReasonCode.SUCCESS) {
                     session!!.qos2ListReceived[packet.packetId!!] = packet
+                    session!!.inflightChanged()
+                }
                 return // Don't send the PUBLISH to other clients until PUBCOMP
             }
             else -> {
@@ -685,6 +694,7 @@ public class ClientConnection(
                 if (it is MQTT5Publish) it.properties else null,
                 it.payload
             )
+            session!!.inflightChanged()
         } ?: run {
             if (packet is MQTT5Pubrel) {
                 writePacket(
@@ -701,6 +711,7 @@ public class ClientConnection(
     private fun handlePubcomp(packet: MQTTPubcomp) {
         session!!.acknowledgePubrel(packet.packetId)
         incrementSendQuota()
+        session!!.inflightChanged()
     }
 
     private fun prepareRetainedMessages(subscription: Subscription, replaced: Boolean): List<MQTTPublish> {

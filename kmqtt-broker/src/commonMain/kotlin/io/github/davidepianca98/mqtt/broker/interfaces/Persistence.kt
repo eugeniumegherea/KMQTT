@@ -3,6 +3,8 @@ package io.github.davidepianca98.mqtt.broker.interfaces
 import io.github.davidepianca98.mqtt.broker.Session
 import io.github.davidepianca98.mqtt.Subscription
 import io.github.davidepianca98.mqtt.packets.mqtt.MQTTPublish
+import io.github.davidepianca98.mqtt.packets.mqtt.MQTTPubrel
+import io.github.davidepianca98.mqtt.broker.InflightState
 
 public interface Persistence {
 
@@ -69,4 +71,19 @@ public interface Persistence {
      * @param topicName topic name
      */
     public fun removeRetained(topicName: String)
+
+    /**
+     * Save in-flight QoS state (pending deliveries/acks) for a client.
+     */
+    public fun persistInflight(clientId: String, state: InflightState)
+
+    /**
+     * Load in-flight QoS state for a client, or null if none persisted.
+     */
+    public fun getInflight(clientId: String): InflightState?
+
+    /**
+     * Clear in-flight QoS state for a client.
+     */
+    public fun clearInflight(clientId: String)
 }
