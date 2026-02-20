@@ -196,28 +196,26 @@ public class Broker(
             }
         }
 
-        val doneNormal = mutableListOf<String>()
-        matchedSubscriptions.filter { !it.value.isShared() }.forEach { subscriptionEntry ->
-            val clientId = subscriptionEntry.key
-            val subscription = subscriptionEntry.value
-
+        // Group non-shared subscriptions by clientId to avoid O(N^2) re-filtering
+        val normalByClient = mutableMapOf<String, MutableList<Subscription>>()
+        matchedSubscriptions.filter { !it.value.isShared() }.forEach { entry ->
+            normalByClient.getOrPut(entry.key) { mutableListOf() }.add(entry.value)
+        }
+        normalByClient.forEach { (clientId, clientSubscriptions) ->
             val session = sessions[clientId]
-            if (!remote || session !is RemoteSession) {
-                if (clientId !in doneNormal && session != null) {
-                    publishNormal(
-                        publisherClientId,
-                        retain,
-                        topicName,
-                        qos,
-                        dup,
-                        properties,
-                        payload,
-                        session,
-                        subscription,
-                        matchedSubscriptions.filter { it.key == clientId && !it.value.isShared() }.map { it.value }
-                    )
-                    doneNormal += clientId
-                }
+            if (session != null && (!remote || session !is RemoteSession)) {
+                publishNormal(
+                    publisherClientId,
+                    retain,
+                    topicName,
+                    qos,
+                    dup,
+                    properties,
+                    payload,
+                    session,
+                    clientSubscriptions.first(),
+                    clientSubscriptions
+                )
             }
         }
     }

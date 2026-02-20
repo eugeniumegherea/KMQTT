@@ -29,9 +29,9 @@ public interface Persistence {
 
     /**
      * Get all the subscriptions from persistent storage
-     * @return map of clientId to [Subscription]
+     * @return list of clientId to [Subscription] pairs (a client may have multiple subscriptions)
      */
-    public fun getAllSubscriptions(): Map<String, Subscription>
+    public fun getAllSubscriptions(): List<Pair<String, Subscription>>
 
     /**
      * Save subscription to persistent storage

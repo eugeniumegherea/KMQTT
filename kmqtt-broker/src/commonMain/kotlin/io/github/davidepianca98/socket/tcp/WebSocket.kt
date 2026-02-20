@@ -112,7 +112,6 @@ internal class WebSocket(private val socket: Socket) : SocketInterface {
         try {
             while (true) {
                 val byte1 = currentReceivedData.read()
-                //val fin = (byte1 and 0x80u) == 0x80.toUByte()
 
                 val opcode = byte1 and 0x0Fu
 
@@ -126,12 +125,14 @@ internal class WebSocket(private val socket: Socket) : SocketInterface {
                 val key = currentReceivedData.readBytes(4)
 
                 val decoded = when (opcode.toInt()) {
-                    0x2 -> decodeBinary(length, key)
+                    0x0 -> decodeBinary(length, key) // continuation frame
+                    0x2 -> decodeBinary(length, key) // binary frame
                     0x8 -> decodeClose(length, key)
                     0x9 -> decodePing(length, key)
+                    0xA -> { decodeBinary(length, key); null } // pong
                     else -> {
                         close()
-                        throw IOException("Opcode must be 0x2")
+                        throw IOException("Unsupported opcode 0x${opcode.toString(16)}")
                     }
                 }
                 decoded?.let { out.write(decoded) }

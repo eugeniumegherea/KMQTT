@@ -128,13 +128,10 @@ public class ClientConnection(
         } catch (e: MQTTException) {
             disconnect(e.reasonCode)
         } catch (e: EOFException) {
-            println("EOF")
             close()
         } catch (e: IOException) {
-            println("IOException ${e.message}")
             closedWithException()
         } catch (e: Exception) {
-            println("Exception ${e.message} ${e.cause?.message}")
             disconnect(ReasonCode.IMPLEMENTATION_SPECIFIC_ERROR)
         }
     }
@@ -149,6 +146,8 @@ public class ClientConnection(
                 }
             }
         } catch (e: IOException) {
+            closedWithException()
+        } catch (e: Exception) {
             closedWithException()
         }
     }

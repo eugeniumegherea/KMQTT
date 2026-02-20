@@ -74,6 +74,8 @@ internal class ServerSocketLoop(private val broker: Broker) {
             if (tcpEventHandler is ClusterConnection) {
                 broker.removeClusterConnection(tcpEventHandler)
             }
+        } catch (e: Exception) {
+            tcpEventHandler.closedWithException()
         }
         return false
     }

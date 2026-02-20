@@ -3,13 +3,13 @@ package io.github.davidepianca98.datastructures
 import io.github.davidepianca98.mqtt.Subscription
 import io.github.davidepianca98.mqtt.getSharedTopicFilter
 
-internal class Trie(subscriptions: Map<String, Subscription>? = null) {
+internal class Trie(subscriptions: List<Pair<String, Subscription>>? = null) {
 
     private val root = TrieNode(Char.MIN_VALUE)
 
     init {
-        subscriptions?.forEach {
-            insert(it.value, it.key)
+        subscriptions?.forEach { (clientId, subscription) ->
+            insert(subscription, clientId)
         }
     }
 

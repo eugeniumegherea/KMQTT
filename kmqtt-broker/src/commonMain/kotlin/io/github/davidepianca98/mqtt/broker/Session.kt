@@ -171,14 +171,15 @@ public class Session(
         packet.updateMessageExpiryInterval()
 
         if (packet.qos == Qos.AT_LEAST_ONCE || packet.qos == Qos.EXACTLY_ONCE) {
-            pendingSendMessages[packet.packetId!!] = packet
-            persist()
             if (connected && (clientConnection?.sendQuota ?: 1u) > 0u) {
+                // Fast path: send immediately and move straight to pendingAck
+                pendingAcknowledgeMessages[packet.packetId!!] = packet
+                persist()
                 clientConnection!!.writePacket(packet)
                 clientConnection!!.decrementSendQuota()
-                pendingSendMessages.remove(packet.packetId)
-                persist()
-                pendingAcknowledgeMessages[packet.packetId!!] = packet
+            } else {
+                // Offline or quota exhausted: queue for later delivery
+                pendingSendMessages[packet.packetId!!] = packet
                 persist()
             }
         } else {
@@ -239,7 +240,6 @@ public class Session(
             if (packetIdentifier > 65535u)
                 packetIdentifier = 1u
         } while (isPacketIdInUse(packetIdentifier))
-        persist()
         markInflightChanged()
 
         return packetIdentifier

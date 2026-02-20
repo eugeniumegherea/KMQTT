@@ -27,7 +27,8 @@ public actual open class Socket(
                 sendBuffer.put(byteArray)
             } catch (e: BufferOverflowException) {
                 // Grow the buffer while preserving any unsent data
-                val existingData = ByteArray(sendBuffer.position())
+                val existing = sendBuffer.position()
+                val existingData = ByteArray(existing)
                 sendBuffer.flip()
                 sendBuffer.get(existingData)
                 val newCapacity = existingData.size + byteArray.size + (byteArray.size / 2)

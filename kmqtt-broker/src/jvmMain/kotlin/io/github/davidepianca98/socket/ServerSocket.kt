@@ -77,7 +77,7 @@ internal actual open class ServerSocket actual constructor(
     }
 
     open fun createSocket(channel: SocketChannel, socketKey: SelectionKey): Socket {
-        // Use a reasonable initial buffer size (128KB) instead of maximumPacketSize.
+        // Use a reasonable initial buffer size instead of maximumPacketSize.
         // maximumPacketSize controls MQTT protocol validation, not NIO buffer allocation.
         // Buffers grow dynamically in Socket.send() if needed.
         val initialBufferSize = minOf(broker.maximumPacketSize.toInt(), 131072) // 128KB
