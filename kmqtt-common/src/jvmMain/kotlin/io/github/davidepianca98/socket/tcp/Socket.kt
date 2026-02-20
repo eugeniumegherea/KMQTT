@@ -26,7 +26,13 @@ public actual open class Socket(
             try {
                 sendBuffer.put(byteArray)
             } catch (e: BufferOverflowException) {
-                sendBuffer = ByteBuffer.allocate(sendBuffer.capacity() + data.size)
+                // Grow the buffer while preserving any unsent data
+                val existingData = ByteArray(sendBuffer.position())
+                sendBuffer.flip()
+                sendBuffer.get(existingData)
+                val newCapacity = existingData.size + byteArray.size + (byteArray.size / 2)
+                sendBuffer = ByteBuffer.allocate(newCapacity)
+                sendBuffer.put(existingData)
                 sendBuffer.put(byteArray)
             }
             sendFromBuffer()
