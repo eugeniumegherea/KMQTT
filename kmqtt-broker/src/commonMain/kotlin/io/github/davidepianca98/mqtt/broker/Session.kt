@@ -45,6 +45,14 @@ public class Session(
             propagateUpdate(this)
         }
     override var mqttVersion: MQTTVersion = MQTTVersion.MQTT3_1_1
+        set(value) {
+            val changed = field != value
+            field = value
+            // When the version changes (e.g. MQTT5 client reconnects to a session
+            // restored from persistence with the default MQTT3_1_1), upgrade any
+            // pending messages so they are serialized in the correct wire format.
+            if (changed) upgradePendingMessages()
+        }
     override var sessionDisconnectedTimestamp: Long? = null
 
     private var packetIdentifier = 1u
@@ -79,6 +87,44 @@ public class Session(
         pendingAcknowledgePubrel.putAll(state.pendingAcknowledgePubrel)
         qos2ListReceived.putAll(state.qos2ListReceived)
         markInflightChanged(force = true)
+    }
+
+    /**
+     * Re-wraps pending messages so their wire format matches the current
+     * [mqttVersion]. This is needed because persistence restores sessions
+     * with the default MQTT 3.1.1 version, so any messages queued while
+     * the session was offline are [MQTT4Publish]. When an MQTT 5 client
+     * reconnects the messages must be upgraded to [MQTT5Publish], otherwise
+     * the client's parser will fail ("Unknown property").
+     */
+    private fun upgradePendingMessages() {
+        fun upgrade(map: MutableMap<UInt, MQTTPublish>) {
+            val entries = map.entries.toList()
+            for ((id, msg) in entries) {
+                val correct = when (mqttVersion) {
+                    MQTTVersion.MQTT5 -> {
+                        if (msg is MQTT5Publish) null // already correct
+                        else MQTT5Publish(
+                            msg.retain, msg.qos, msg.dup, msg.topicName,
+                            msg.packetId,
+                            MQTT5Properties(),
+                            msg.payload,
+                            msg.timestamp
+                        )
+                    }
+                    else -> {
+                        if (msg is MQTT4Publish) null
+                        else MQTT4Publish(
+                            msg.retain, msg.qos, msg.dup, msg.topicName,
+                            msg.packetId, msg.payload, msg.timestamp
+                        )
+                    }
+                }
+                if (correct != null) map[id] = correct
+            }
+        }
+        upgrade(pendingSendMessages)
+        upgrade(pendingAcknowledgeMessages)
     }
 
     private fun snapshotInflight(): InflightState = InflightState(
